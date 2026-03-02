@@ -1,6 +1,6 @@
 import streamlit as st
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 from pathlib import Path
 import sqlite3
@@ -51,7 +51,17 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_news(limit=50, language=None, category=None, keyword=None):
+def clean_old_news(days=7):
+    conn = sqlite3.connect(str(DB_PATH))
+    c = conn.cursor()
+    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    c.execute("DELETE FROM news WHERE created_at < ?", (cutoff,))
+    deleted = c.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+def get_news(limit=100, language=None, category=None, keyword=None):
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
@@ -93,6 +103,8 @@ def get_stats():
     return {"total": total, "en": en, "zh": zh}
 
 def run_scan():
+    clean_old_news(days=7)
+    
     fetcher = NewsFetcher()
     filter_obj = KeywordFilter()
     dedup = Deduplicator()
@@ -118,7 +130,10 @@ def run_scan():
     st.write(f"总计抓取: {len(all_news)} 条")
     
     filtered = filter_obj.filter(all_news)
-    unique = dedup.deduplicate(filtered)
+    
+    unique = dedup.deduplicate(filtered, days_filter=7)
+    
+    duplicate_count = len(all_news) - len(filtered) - len(unique)
     
     conn = sqlite3.connect(str(DB_PATH))
     c = conn.cursor()
@@ -146,7 +161,16 @@ def run_scan():
               (datetime.now().isoformat(), count, "success"))
     conn.commit()
     conn.close()
-    return count, en_count, zh_count
+    return count, en_count, zh_count, duplicate_count
+
+def format_date(date_str):
+    if not date_str:
+        return "N/A"
+    try:
+        dt = datetime.fromisoformat(str(date_str).replace('Z', '+00:00'))
+        return dt.strftime("%Y-%m-%d")
+    except:
+        return str(date_str)[:10]
 
 init_db()
 
@@ -158,8 +182,8 @@ col3.metric("🇨🇳 中文", stats["zh"])
 if col4.button("🔄 手动扫描"):
     with st.spinner("扫描中，请稍候..."):
         try:
-            count, en_count, zh_count = run_scan()
-            st.success(f"扫描完成！新增 {count} 条 (英文:{en_count}, 中文:{zh_count})")
+            count, en_count, zh_count, dup_count = run_scan()
+            st.success(f"扫描完成！新增 {count} 条 (英文:{en_count}, 中文:{zh_count})，过滤重复 {dup_count} 条")
         except Exception as e:
             st.error(f"扫描出错: {e}")
         st.rerun()
@@ -178,18 +202,90 @@ st.write(f"**共 {len(news)} 条结果**")
 if not news:
     st.info("暂无新闻，点击上方「手动扫描」按钮抓取最新新闻！")
 else:
+    st.markdown("""
+    <style>
+    .news-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .news-table th {
+        background-color: #f0f2f6;
+        padding: 12px;
+        text-align: left;
+        font-weight: bold;
+    }
+    .news-table td {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    .news-table tr:hover {
+        background-color: #f8f9fa;
+    }
+    .category-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 15px;
+        font-size: 12px;
+        color: white;
+    }
+    .category-award { background-color: #4CAF50; }
+    .category-winners { background-color: #2196F3; }
+    .category-cert { background-color: #FF9800; }
+    .category-report { background-color: #9C27B0; }
+    .category-other { background-color: #757575; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    table_html = """
+    <table class="news-table">
+        <thead>
+            <tr>
+                <th style="width:45%">新闻标题</th>
+                <th style="width:15%">类别</th>
+                <th style="width:15%">语言</th>
+                <th style="width:15%">日期</th>
+                <th style="width:10%">来源</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+    
     for item in news:
-        lang_flag = "🌐 EN" if item.get('language') == 'en' else "🇨🇳 中文"
-        with st.expander(f"{lang_flag} {item.get('title', '')[:60]}..."):
-            col_lang2, col_cat2 = st.columns(2)
-            col_lang2.write(f"**语言:** {'英文' if item.get('language') == 'en' else '中文'}")
-            col_cat2.write(f"**分类:** {item.get('category', '其他')}")
-            st.write(f"**来源:** {item.get('source', 'N/A')}")
-            st.write(f"**关键词:** {item.get('keyword', 'N/A')}")
-            st.write(f"**时间:** {item.get('published_at', 'N/A')}")
-            if item.get('snippet'):
-                st.write(f"**摘要:** {item['snippet']}")
-            st.link_button("查看原文", item.get('url', '#'))
+        title = item.get('title', '')[:60] + '...' if len(item.get('title', '')) > 60 else item.get('title', '')
+        cat = item.get('category', '其他')
+        lang = '🇨🇳 中文' if item.get('language') == 'zh' else '🌐 EN'
+        date = format_date(item.get('published_at'))
+        source = item.get('source', 'N/A')[:20]
+        
+        if cat == '奖项启动':
+            cat_class = 'category-award'
+        elif cat == '获奖名单':
+            cat_class = 'category-winners'
+        elif cat == '能力认证':
+            cat_class = 'category-cert'
+        elif cat == '行业报告':
+            cat_class = 'category-report'
+        else:
+            cat_class = 'category-other'
+        
+        url = item.get('url', '#')
+        
+        table_html += f"""
+            <tr>
+                <td><a href="{url}" target="_blank" style="text-decoration:none;color:#1e3c72;">{title}</a></td>
+                <td><span class="category-badge {cat_class}">{cat}</span></td>
+                <td>{lang}</td>
+                <td>{date}</td>
+                <td>{source}</td>
+            </tr>
+        """
+    
+    table_html += """
+        </tbody>
+    </table>
+    """
+    
+    st.markdown(table_html, unsafe_allow_html=True)
 
 st.markdown("---")
-st.caption("🏆 IT运维奖项扫描智能体 | 扫描关键词: AIOps, 智能运维, Gartner, Forrester, 信通院, DevOps, SRE 等")
+st.caption("🏆 IT运维奖项扫描智能体 | 扫描关键词: AIOps, 智能运维, Gartner, Forrester, 信通院, DevOps, SRE 等 | 自动过滤7天内重复新闻")
