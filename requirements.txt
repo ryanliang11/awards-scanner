@@ -1,0 +1,6 @@
+streamlit
+flask
+apscheduler
+httpx
+beautifulsoup4
+lxml
