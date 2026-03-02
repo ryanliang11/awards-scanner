@@ -12,7 +12,8 @@ class KeywordFilter:
         
         for item in news_list:
             if self._matches_keywords(item):
-                filtered.append(item)
+                if not self._is_iso_related(item):
+                    filtered.append(item)
         
         return filtered
     
@@ -34,16 +35,34 @@ class KeywordFilter:
         
         return False
     
+    def _is_iso_related(self, item: Dict) -> bool:
+        title = item.get("title", "").lower()
+        snippet = item.get("snippet", "").lower()
+        content = f"{title} {snippet}"
+        
+        iso_keywords = [
+            "iso 9001", "iso 27001", "iso 20000", "iso 14001", 
+            "iso 22301", "iso certification", "iso认证",
+            "iso-9001", "iso-27001", "iso-20000",
+            "iso认证", "iso认证", "体系认证"
+        ]
+        
+        for kw in iso_keywords:
+            if kw in content:
+                return True
+        
+        return False
+    
     def categorize(self, item: Dict) -> str:
         title = item.get("title", "").lower()
         snippet = item.get("snippet", "").lower()
         content = f"{title} {snippet}"
         
         categories = {
-            "奖项启动": ["奖项启动", "award launch", "申报", "call for", "征集", "报名", "开始", "launch"],
-            "获奖名单": ["获奖", "winners", "获奖名单", "award winners", "公布", "winner", "获奖者", "荣誉"],
-            "能力认证": ["认证", "certification", "资质", "通过", "获得", "approved", "recognized"],
-            "行业报告": ["报告", "report", "研究", "研究", "分析", "quadrant", "wave", "评估"]
+            "奖项启动": ["奖项启动", "award launch", "申报", "call for", "征集", "报名", "开始", "launch", "新奖项", "评选启动", "报名启动"],
+            "获奖名单": ["获奖", "winners", "获奖名单", "award winners", "公布", "winner", "获奖者", "荣誉", "榜单", "排名", "top10", "top 10"],
+            "能力认证": ["认证", "certification", "资质", "通过", "获得", "approved", "recognized", "获得认证", "通过认证", "拿到认证"],
+            "行业报告": ["报告", "report", "研究", "研究", "分析", "quadrant", "wave", "评估", "魔力象限", "市场研究", "预测"]
         }
         
         for category, keywords in categories.items():
