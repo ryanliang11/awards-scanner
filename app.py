@@ -51,6 +51,14 @@ def init_db():
     conn.commit()
     conn.close()
 
+def get_existing_hashes():
+    conn = sqlite3.connect(str(DB_PATH))
+    c = conn.cursor()
+    c.execute("SELECT title, url, source FROM news")
+    rows = c.fetchall()
+    conn.close()
+    return [f"{r[0]}|{r[1]}|{r[2]}" for r in rows]
+
 def clean_old_news(days=7):
     conn = sqlite3.connect(str(DB_PATH))
     c = conn.cursor()
@@ -105,9 +113,12 @@ def get_stats():
 def run_scan():
     clean_old_news(days=7)
     
+    existing_hashes = get_existing_hashes()
+    
     fetcher = NewsFetcher()
     filter_obj = KeywordFilter()
     dedup = Deduplicator()
+    dedup.load_from_db(existing_hashes)
     
     all_news = []
     
@@ -130,10 +141,7 @@ def run_scan():
     st.write(f"总计抓取: {len(all_news)} 条")
     
     filtered = filter_obj.filter(all_news)
-    
     unique = dedup.deduplicate(filtered, days_filter=7)
-    
-    duplicate_count = len(all_news) - len(filtered) - len(unique)
     
     conn = sqlite3.connect(str(DB_PATH))
     c = conn.cursor()
@@ -161,7 +169,7 @@ def run_scan():
               (datetime.now().isoformat(), count, "success"))
     conn.commit()
     conn.close()
-    return count, en_count, zh_count, duplicate_count
+    return count, en_count, zh_count
 
 def format_date(date_str):
     if not date_str:
@@ -171,6 +179,16 @@ def format_date(date_str):
         return dt.strftime("%Y-%m-%d")
     except:
         return str(date_str)[:10]
+
+def get_category_color(cat):
+    colors = {
+        "奖项启动": "#4CAF50",
+        "获奖名单": "#2196F3", 
+        "能力认证": "#FF9800",
+        "行业报告": "#9C27B0",
+        "其他": "#757575"
+    }
+    return colors.get(cat, "#757575")
 
 init_db()
 
@@ -182,8 +200,8 @@ col3.metric("🇨🇳 中文", stats["zh"])
 if col4.button("🔄 手动扫描"):
     with st.spinner("扫描中，请稍候..."):
         try:
-            count, en_count, zh_count, dup_count = run_scan()
-            st.success(f"扫描完成！新增 {count} 条 (英文:{en_count}, 中文:{zh_count})，过滤重复 {dup_count} 条")
+            count, en_count, zh_count = run_scan()
+            st.success(f"扫描完成！新增 {count} 条 (英文:{en_count}, 中文:{zh_count})")
         except Exception as e:
             st.error(f"扫描出错: {e}")
         st.rerun()
@@ -202,90 +220,37 @@ st.write(f"**共 {len(news)} 条结果**")
 if not news:
     st.info("暂无新闻，点击上方「手动扫描」按钮抓取最新新闻！")
 else:
-    st.markdown("""
-    <style>
-    .news-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .news-table th {
-        background-color: #f0f2f6;
-        padding: 12px;
-        text-align: left;
-        font-weight: bold;
-    }
-    .news-table td {
-        padding: 10px;
-        border-bottom: 1px solid #eee;
-    }
-    .news-table tr:hover {
-        background-color: #f8f9fa;
-    }
-    .category-badge {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 15px;
-        font-size: 12px;
-        color: white;
-    }
-    .category-award { background-color: #4CAF50; }
-    .category-winners { background-color: #2196F3; }
-    .category-cert { background-color: #FF9800; }
-    .category-report { background-color: #9C27B0; }
-    .category-other { background-color: #757575; }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    table_html = """
-    <table class="news-table">
-        <thead>
-            <tr>
-                <th style="width:45%">新闻标题</th>
-                <th style="width:15%">类别</th>
-                <th style="width:15%">语言</th>
-                <th style="width:15%">日期</th>
-                <th style="width:10%">来源</th>
-            </tr>
-        </thead>
-        <tbody>
-    """
-    
     for item in news:
-        title = item.get('title', '')[:60] + '...' if len(item.get('title', '')) > 60 else item.get('title', '')
+        title = item.get('title', '')[:70]
+        if len(item.get('title', '')) > 70:
+            title += '...'
+        
         cat = item.get('category', '其他')
-        lang = '🇨🇳 中文' if item.get('language') == 'zh' else '🌐 EN'
+        cat_color = get_category_color(cat)
+        lang = 'CN' if item.get('language') == 'zh' else 'EN'
         date = format_date(item.get('published_at'))
-        source = item.get('source', 'N/A')[:20]
-        
-        if cat == '奖项启动':
-            cat_class = 'category-award'
-        elif cat == '获奖名单':
-            cat_class = 'category-winners'
-        elif cat == '能力认证':
-            cat_class = 'category-cert'
-        elif cat == '行业报告':
-            cat_class = 'category-report'
-        else:
-            cat_class = 'category-other'
-        
+        source = item.get('source', 'N/A')
         url = item.get('url', '#')
         
-        table_html += f"""
-            <tr>
-                <td><a href="{url}" target="_blank" style="text-decoration:none;color:#1e3c72;">{title}</a></td>
-                <td><span class="category-badge {cat_class}">{cat}</span></td>
-                <td>{lang}</td>
-                <td>{date}</td>
-                <td>{source}</td>
-            </tr>
-        """
-    
-    table_html += """
-        </tbody>
-    </table>
-    """
-    
-    st.markdown(table_html, unsafe_allow_html=True)
+        with st.container():
+            col_t1, col_t2, col_t3, col_t4, col_t5 = st.columns([5, 1.5, 1, 1.5, 1])
+            
+            with col_t1:
+                st.markdown(f"📰 [{title}]({url})")
+            
+            with col_t2:
+                st.markdown(f"<span style='background-color:{cat_color};color:white;padding:2px 8px;border-radius:10px;font-size:12px;'>{cat}</span>", unsafe_allow_html=True)
+            
+            with col_t3:
+                st.markdown(f"**{lang}**")
+            
+            with col_t4:
+                st.markdown(f"📅 {date}")
+            
+            with col_t5:
+                st.caption(source[:15])
+            
+            st.divider()
 
 st.markdown("---")
 st.caption("🏆 IT运维奖项扫描智能体 | 扫描关键词: AIOps, 智能运维, Gartner, Forrester, 信通院, DevOps, SRE 等 | 自动过滤7天内重复新闻")

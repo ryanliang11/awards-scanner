@@ -19,6 +19,9 @@ class Deduplicator:
             if content_hash in new_hashes:
                 continue
             
+            if content_hash in self.seen_hashes:
+                continue
+            
             published_at = item.get("published_at")
             if published_at:
                 try:
@@ -28,8 +31,7 @@ class Deduplicator:
                         pub_date = published_at
                     
                     if pub_date >= cutoff:
-                        if content_hash in self.seen_hashes:
-                            continue
+                        pass
                 except:
                     pass
             
@@ -58,7 +60,17 @@ class Deduplicator:
         self.seen_hashes.add(content_hash)
     
     def load_from_db(self, hashes: List[str]):
-        self.seen_hashes = set(hashes)
+        hash_set = set()
+        for h in hashes:
+            if h:
+                try:
+                    parts = h.split('|')
+                    if len(parts) >= 3:
+                        content = f"{parts[0]}|{parts[1]}|{parts[2]}"
+                        hash_set.add(hashlib.md5(content.encode()).hexdigest())
+                except:
+                    pass
+        self.seen_hashes = hash_set
     
     def filter_recent(self, news_list: List[Dict], days: int = 7) -> List[Dict]:
         cutoff = datetime.now() - timedelta(days=days)
