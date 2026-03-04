@@ -45,33 +45,40 @@ class NewsFetcher:
         if not url:
             return None
         
-        date_patterns = [
-            r'/(\d{4})(\d{2})(\d{2})/',
-            r'/(\d{4})(\d{2})(\d{2})\.',
-            r'/(\d{4})(\d{2})(\d{2})',
-            r'-(\d{4})(\d{2})(\d{2})',
-            r'_(\d{4})(\d{2})(\d{2})_',
-            r'(\d{8})/',
-        ]
+        url_lower = url.lower()
         
-        for pattern in date_patterns:
-            match = re.search(pattern, url)
-            if match:
-                try:
-                    if len(match.groups()) == 3:
-                        year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
-                        if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
-                            return datetime(year, month, day)
-                    elif len(match.groups()) == 1:
-                        date_str = match.group(1)
-                        if len(date_str) == 8:
-                            year = int(date_str[:4])
-                            month = int(date_str[4:6])
-                            day = int(date_str[6:8])
-                            if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
-                                return datetime(year, month, day)
-                except:
-                    pass
+        match = re.search(r'/(\d{4})(\d{2})(\d{2})[/_.-]', url)
+        if match:
+            try:
+                year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
+                if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
+                    return datetime(year, month, day)
+            except:
+                pass
+        
+        match = re.search(r'-(\d{8})', url)
+        if match:
+            try:
+                date_str = match.group(1)
+                year = int(date_str[:4])
+                month = int(date_str[4:6])
+                day = int(date_str[6:8])
+                if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
+                    return datetime(year, month, day)
+            except:
+                pass
+        
+        match = re.search(r'/(\d{8})[/?#]', url)
+        if match:
+            try:
+                date_str = match.group(1)
+                year = int(date_str[:4])
+                month = int(date_str[4:6])
+                day = int(date_str[6:8])
+                if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
+                    return datetime(year, month, day)
+            except:
+                pass
         
         return None
     
@@ -95,25 +102,10 @@ class NewsFetcher:
                 r'(\d{4})-(\d{1,2})-(\d{1,2})',
                 r'(\d{4})/(\d{1,2})/(\d{1,2})',
                 r'(\d{4})年(\d{1,2})月(\d{1,2})日',
-                r'(\d{4})\.(\d{1,2})\.(\d{1,2})',
-                r'发表[于时间：]+(\d{4})-(\d{1,2})-(\d{1,2})',
-                r'发布时间[：]?(\d{4})-(\d{1,2})-(\d{1,2})',
-                r'datePublished["\s:]+(\d{4})-(\d{1,2})-(\d{1,2})',
-                r'contentDate["\s:]+(\d{4})-(\d{1,2})-(\d{1,2})',
             ]
             
             for pattern in date_patterns:
                 match = re.search(pattern, text)
-                if match:
-                    try:
-                        year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
-                        if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
-                            return datetime(year, month, day)
-                    except:
-                        pass
-            
-            for pattern in date_patterns:
-                match = re.search(pattern, html)
                 if match:
                     try:
                         year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
@@ -149,7 +141,7 @@ class NewsFetcher:
     
     def _build_english_queries(self) -> List[Dict]:
         queries = []
-        news_types = ["award 2025", "winners 2025", "certification 2025"]
+        news_types = ["award 2026", "winners 2026", "certification 2026"]
         
         keywords = ["AIOps", "Intelligent Operations", "DevOps", "SRE", "Gartner", "Forrester"]
         
@@ -165,13 +157,13 @@ class NewsFetcher:
     
     async def _search_bing_chinese(self) -> List[Dict]:
         queries = [
-            "AIOps 奖项 2025",
-            "智能运维 获奖 2025", 
-            "DevOps 认证 2025",
-            "SRE 行业奖项 2025",
-            "Gartner 中国 2025",
-            "Forrester 中国 2025",
-            "信通院 评估 2025",
+            "AIOps 奖项 2026",
+            "智能运维 获奖 2026", 
+            "DevOps 认证 2026",
+            "SRE 行业奖项 2026",
+            "Gartner 中国 2026",
+            "Forrester 中国 2026",
+            "信通院 评估 2026",
         ]
         
         all_items = []
@@ -225,9 +217,9 @@ class NewsFetcher:
     
     async def _search_baidu_tech(self) -> List[Dict]:
         queries = [
-            "智能运维 奖项 2025",
-            "AIOps 获奖 2025",
-            "DevOps 认证 2025",
+            "智能运维 奖项 2026",
+            "AIOps 获奖 2026",
+            "DevOps 认证 2026",
         ]
         
         all_items = []
