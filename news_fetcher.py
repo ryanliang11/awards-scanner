@@ -46,12 +46,12 @@ class NewsFetcher:
             return None
         
         date_patterns = [
-            r'/(\d{4})-(\d{2})-(\d{2})/',
             r'/(\d{4})(\d{2})(\d{2})/',
-            r'(\d{4})-(\d{2})-(\d{2})',
-            r'(\d{4})_(\d{2})_(\d{2})',
-            r'/(\d{4})/(\d{2})/(\d{2})/',
-            r't(\d{8})',
+            r'/(\d{4})(\d{2})(\d{2})\.',
+            r'/(\d{4})(\d{2})(\d{2})',
+            r'-(\d{4})(\d{2})(\d{2})',
+            r'_(\d{4})(\d{2})(\d{2})_',
+            r'(\d{8})/',
         ]
         
         for pattern in date_patterns:
@@ -62,6 +62,14 @@ class NewsFetcher:
                         year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
                         if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
                             return datetime(year, month, day)
+                    elif len(match.groups()) == 1:
+                        date_str = match.group(1)
+                        if len(date_str) == 8:
+                            year = int(date_str[:4])
+                            month = int(date_str[4:6])
+                            day = int(date_str[6:8])
+                            if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
+                                return datetime(year, month, day)
                 except:
                     pass
         
