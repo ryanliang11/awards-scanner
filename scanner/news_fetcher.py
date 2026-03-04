@@ -13,7 +13,7 @@ class NewsFetcher:
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
         }
-        self.timeout = 15
+        self.timeout = 10
         self.cutoff_date = datetime.now() - timedelta(days=7)
         
     async def fetch_news(self) -> List[Dict]:
@@ -25,7 +25,7 @@ class NewsFetcher:
             try:
                 news_items = await self._search_bing_en(query)
                 all_news.extend(news_items)
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.2)
             except Exception as e:
                 continue
         
@@ -36,33 +36,63 @@ class NewsFetcher:
         
         all_news.extend(await self._search_bing_chinese())
         
-        all_news.extend(await self._search_baidu_tech())
-        
-        if not all_news:
-            all_news.extend(await self._search_bing_chinese_v2())
+        if len(all_news) < 10:
+            all_news.extend(await self._search_baidu_tech())
         
         return self._deduplicate(all_news)
     
-    async def _fetch_article_date(self, url: str) -> Optional[datetime]:
-        if not url or url.startswith("/") or "localhost" in url:
+    def _extract_date_from_url(self, url: str) -> Optional[datetime]:
+        if not url:
             return None
+        
+        date_patterns = [
+            r'/(\d{4})-(\d{2})-(\d{2})/',
+            r'/(\d{4})(\d{2})(\d{2})/',
+            r'(\d{4})-(\d{2})-(\d{2})',
+            r'(\d{4})_(\d{2})_(\d{2})',
+            r'/(\d{4})/(\d{2})/(\d{2})/',
+            r't(\d{8})',
+        ]
+        
+        for pattern in date_patterns:
+            match = re.search(pattern, url)
+            if match:
+                try:
+                    if len(match.groups()) == 3:
+                        year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
+                        if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
+                            return datetime(year, month, day)
+                except:
+                    pass
+        
+        return None
+    
+    async def _fetch_article_date(self, url: str) -> Optional[datetime]:
+        url_date = self._extract_date_from_url(url)
+        
+        if not url or url.startswith("/") or "localhost" in url:
+            return url_date
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers, follow_redirects=True) as client:
                 response = await client.get(url)
                 
             if response.status_code != 200:
-                return None
+                return url_date
             
-            soup = BeautifulSoup(response.text, "html.parser")
+            html = response.text
+            text = BeautifulSoup(html, "html.parser").get_text()
             
             date_patterns = [
                 r'(\d{4})-(\d{1,2})-(\d{1,2})',
                 r'(\d{4})/(\d{1,2})/(\d{1,2})',
                 r'(\d{4})年(\d{1,2})月(\d{1,2})日',
+                r'(\d{4})\.(\d{1,2})\.(\d{1,2})',
+                r'发表[于时间：]+(\d{4})-(\d{1,2})-(\d{1,2})',
+                r'发布时间[：]?(\d{4})-(\d{1,2})-(\d{1,2})',
+                r'datePublished["\s:]+(\d{4})-(\d{1,2})-(\d{1,2})',
+                r'contentDate["\s:]+(\d{4})-(\d{1,2})-(\d{1,2})',
             ]
-            
-            text = soup.get_text()
             
             for pattern in date_patterns:
                 match = re.search(pattern, text)
@@ -74,15 +104,7 @@ class NewsFetcher:
                     except:
                         pass
             
-            time_patterns = [
-                r'time["\s:]+(\d{4})-(\d{1,2})-(\d{1,2})',
-                r'publishDate["\s:]+(\d{4})-(\d{1,2})-(\d{1,2})',
-                r'datePublished["\s:]+(\d{4})-(\d{1,2})-(\d{1,2})',
-                r'<time[^>]*>(\d{4})-(\d{1,2})-(\d{1,2})',
-            ]
-            
-            html = response.text
-            for pattern in time_patterns:
+            for pattern in date_patterns:
                 match = re.search(pattern, html)
                 if match:
                     try:
@@ -92,79 +114,56 @@ class NewsFetcher:
                     except:
                         pass
             
-            return None
+            return url_date
             
         except:
-            return None
+            return url_date
     
     async def _process_news_with_date(self, news_list: List[Dict]) -> List[Dict]:
         result = []
         
         for item in news_list:
-            pub_date = await self._fetch_article_date(item.get("url", ""))
-            if pub_date:
-                item["published_at"] = pub_date
-            else:
-                url_date = self._extract_date_from_url(item.get("url", ""))
-                if url_date:
-                    item["published_at"] = url_date
-                else:
-                    item["published_at"] = datetime.now()
+            url = item.get("url", "")
+            pub_date = await self._fetch_article_date(url)
             
-            if item["published_at"] >= self.cutoff_date:
+            if not pub_date:
+                pub_date = self._extract_date_from_url(url)
+            
+            if not pub_date:
+                pub_date = datetime.now()
+            
+            item["published_at"] = pub_date
+            
+            if pub_date >= self.cutoff_date:
                 result.append(item)
         
         return result
     
-    def _extract_date_from_url(self, url: str) -> Optional[datetime]:
-        if not url:
-            return None
-        
-        date_patterns = [
-            r'(\d{4})-(\d{1,2})-(\d{1,2})',
-            r'(\d{4})_(\d{1,2})_(\d{1,2})',
-            r'/(\d{4})(\d{2})(\d{2})/',
-        ]
-        
-        for pattern in date_patterns:
-            match = re.search(pattern, url)
-            if match:
-                try:
-                    year, month, day = int(match.group(1)), int(match.group(2)), int(match.group(3))
-                    if 2000 <= year <= 2030 and 1 <= month <= 12 and 1 <= day <= 31:
-                        return datetime(year, month, day)
-                except:
-                    pass
-        
-        return None
-    
     def _build_english_queries(self) -> List[Dict]:
         queries = []
-        news_types = ["award", "winners", "certification", "2025", "2026"]
+        news_types = ["award 2025", "winners 2025", "certification 2025"]
         
-        keywords = ["AIOps", "Intelligent Operations", "AI Operations", "DevOps", "SRE", 
-                   "Site Reliability Engineering", "IT Operations", "Gartner", "Forrester",
-                   "ITOM", "digital operations"]
+        keywords = ["AIOps", "Intelligent Operations", "DevOps", "SRE", "Gartner", "Forrester"]
         
-        for keyword in keywords[:12]:
-            for news_type in news_types[:3]:
+        for keyword in keywords:
+            for news_type in news_types:
                 queries.append({
                     "keyword": keyword,
                     "type": news_type,
                     "query": f"{keyword} {news_type}"
                 })
         
-        return queries[:25]
+        return queries[:20]
     
     async def _search_bing_chinese(self) -> List[Dict]:
         queries = [
             "AIOps 奖项 2025",
-            "智能运维 获奖", 
-            "DevOps 认证",
-            "SRE 行业奖项",
-            "信通院 评估",
-            "Gartner 中国",
-            "Forrester 中国",
+            "智能运维 获奖 2025", 
+            "DevOps 认证 2025",
+            "SRE 行业奖项 2025",
+            "Gartner 中国 2025",
+            "Forrester 中国 2025",
+            "信通院 评估 2025",
         ]
         
         all_items = []
@@ -216,57 +215,11 @@ class NewsFetcher:
         
         return await self._process_news_with_date(all_items)
     
-    async def _search_bing_chinese_v2(self) -> List[Dict]:
-        keywords = ["智能运维", "AIOps", "DevOps", "SRE"]
-        
-        all_items = []
-        
-        for kw in keywords:
-            try:
-                url = f"https://cn.bing.com/news/search?q={kw}%20%E5%A5%96&setlang=zh-CN"
-                
-                async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers, follow_redirects=True) as client:
-                    response = await client.get(url)
-                
-                soup = BeautifulSoup(response.text, "html.parser")
-                
-                for article in soup.select("div.news-card"):
-                    try:
-                        title_elem = article.select_one("a.title")
-                        if not title_elem:
-                            continue
-                        
-                        title = title_elem.get_text(strip=True)
-                        url = title_elem.get("href", "")
-                        
-                        if not url or url.startswith("/"):
-                            continue
-                        
-                        all_items.append({
-                            "title": title,
-                            "url": url,
-                            "snippet": "",
-                            "published_at": None,
-                            "keyword": kw,
-                            "source": self._extract_source(url),
-                            "language": "zh"
-                        })
-                    except Exception:
-                        continue
-                
-                await asyncio.sleep(0.2)
-                
-            except Exception as e:
-                continue
-        
-        return await self._process_news_with_date(all_items)
-    
     async def _search_baidu_tech(self) -> List[Dict]:
         queries = [
             "智能运维 奖项 2025",
-            "AIOps 获奖",
-            "DevOps 认证",
-            "SRE 行业",
+            "AIOps 获奖 2025",
+            "DevOps 认证 2025",
         ]
         
         all_items = []
