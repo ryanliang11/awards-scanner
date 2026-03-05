@@ -35,11 +35,16 @@ class NewsFetcher:
         all_news = []
         
         chinese_queries = [
-            "AIOps 奖 认证 申报 申请 评选",
-            "智能运维 奖 认证 申报 申请 评选",
-            "DevOps 奖 认证 申报 申请 评选",
-            "AI 奖项 奖 认证 申报 申请 评选",
-            "智能体 奖 认证 申报 申请 评选",
+            "AIOps 奖 申报", "AIOps 奖 申请", "AIOps 奖 评选",
+            "AIOps 认证 申报", "AIOps 认证 申请", "AIOps 认证 评选",
+            "智能运维 奖 申报", "智能运维 奖 申请", "智能运维 奖 评选",
+            "智能运维 认证 申报", "智能运维 认证 申请", "智能运维 认证 评选",
+            "DevOps 奖 申报", "DevOps 奖 申请", "DevOps 奖 评选",
+            "DevOps 认证 申报", "DevOps 认证 申请", "DevOps 认证 评选",
+            "AI 奖 申报", "AI 奖 申请", "AI 奖 评选",
+            "AI 认证 申报", "AI 认证 申请", "AI 认证 评选",
+            "智能体 奖 申报", "智能体 奖 申请", "智能体 奖 评选",
+            "智能体 认证 申报", "智能体 认证 申请", "智能体 认证 评选",
         ]
         
         for query in chinese_queries:
