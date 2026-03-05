@@ -1,6 +1,6 @@
 import streamlit as st
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import sys
 from pathlib import Path
 import sqlite3
@@ -255,8 +255,8 @@ language = col_lang.selectbox("Lang", ["全部", "en", "zh"])
 col_cat, col_date1, col_date2 = st.columns([1, 1, 1])
 category = col_cat.selectbox("Category", ["全部", "奖项启动", "获奖名单", "能力认证", "行业报告", "其他"])
 
-default_start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-default_end = datetime.now().strftime("%Y-%m-%d")
+default_start = (datetime.now() - timedelta(days=7)).date()
+default_end = datetime.now().date()
 start_date = col_date1.date_input("Start", value=default_start)
 end_date = col_date2.date_input("End", value=default_end)
 
