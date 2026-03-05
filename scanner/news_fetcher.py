@@ -137,6 +137,10 @@ class NewsFetcher:
             "SRE 行业 奖项",
             "Gartner 中国 入选",
             "Forrester 报告 厂商",
+            "site:weixin.qq.com AIOps 智能运维",
+            "site:weixin.qq.com DevOps SRE",
+            "微信公众号 AIOps 奖项",
+            "微信公众号 智能运维 获奖",
         ]
         
         all_items = []
