@@ -128,12 +128,12 @@ def is_recent(pub_date) -> bool:
     except:
         return False
 
-def run_scan():
+def run_scan(start_date=None, end_date=None):
     clean_old_news(days=7)
     
     existing_hashes = get_existing_hashes()
     
-    fetcher = NewsFetcher()
+    fetcher = NewsFetcher(start_date=start_date, end_date=end_date)
     filter_obj = KeywordFilter()
     dedup = Deduplicator()
     dedup.load_from_db(existing_hashes)
@@ -237,10 +237,19 @@ stats = get_stats()
 col1.metric("Total", stats["total"])
 col2.metric("EN", stats["en"])
 col3.metric("CN", stats["zh"])
+
+col_scan1, col_scan2 = st.columns(2)
+default_start_scan = (datetime.now() - timedelta(days=7)).date()
+default_end_scan = datetime.now().date()
+start_date_scan = col_scan1.date_input("Scan Start", value=default_start_scan)
+end_date_scan = col_scan2.date_input("Scan End", value=default_end_scan)
+
 if col4.button("Scan"):
     with st.spinner("Scanning..."):
         try:
-            count, en_count, zh_count = run_scan()
+            start_str = start_date_scan.strftime("%Y-%m-%d") if start_date_scan else None
+            end_str = end_date_scan.strftime("%Y-%m-%d") if end_date_scan else None
+            count, en_count, zh_count = run_scan(start_str, end_str)
             st.success(f"Done! New: {count} (EN:{en_count}, CN:{zh_count})")
         except Exception as e:
             st.error(f"Error: {e}")
