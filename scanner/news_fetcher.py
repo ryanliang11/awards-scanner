@@ -77,6 +77,12 @@ class NewsFetcher:
                         continue
                     
                     title = item.get("title", "")
+                    
+                    title_lower = title.lower()
+                    query_keywords = query.split()
+                    if not any(kw in title_lower for kw in query_keywords):
+                        continue
+                    
                     snippet = item.get("content", "")
                     
                     date_from_url = self._extract_date_from_url(url)
