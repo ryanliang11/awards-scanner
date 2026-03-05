@@ -203,9 +203,22 @@ def format_date(date_str):
     if not date_str:
         return "N/A"
     try:
-        return str(date_str)[:10]
+        date_str = str(date_str)[:10]
+        return date_str
     except:
         return "N/A"
+
+def is_valid_date(date_str):
+    if not date_str:
+        return False
+    try:
+        date_str = str(date_str)[:10]
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        now = datetime.now()
+        cutoff = now - timedelta(days=7)
+        return dt >= cutoff
+    except:
+        return False
 
 def get_category_color(cat):
     colors = {
@@ -241,6 +254,8 @@ language = col_lang.selectbox("Lang", ["全部", "en", "zh"])
 category = col_cat.selectbox("Category", ["全部", "奖项启动", "获奖名单", "能力认证", "行业报告", "其他"])
 
 news = get_news(100, language=language, category=category, keyword=keyword)
+
+news = [n for n in news if is_valid_date(n.get('published_at'))]
 
 st.write(f"**{len(news)} results (last 7 days)**")
 
