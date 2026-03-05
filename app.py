@@ -72,23 +72,15 @@ def clean_old_news(days=7):
     return deleted
 
 def get_news(limit=100, language=None, category=None, keyword=None, start_date=None, end_date=None):
-    cutoff = datetime.now() - timedelta(days=7)
-    cutoff_str = cutoff.strftime("%Y-%m-%d")
+    effective_start = start_date if start_date else (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    effective_end = end_date if end_date else datetime.now().strftime("%Y-%m-%d")
     
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     
-    query = "SELECT * FROM news WHERE published_at >= ?"
-    params = [cutoff_str]
-    
-    if start_date:
-        query += " AND published_at >= ?"
-        params.append(start_date)
-    
-    if end_date:
-        query += " AND published_at <= ?"
-        params.append(end_date)
+    query = "SELECT * FROM news WHERE published_at >= ? AND published_at <= ?"
+    params = [effective_start, effective_end]
     
     if language and language != "全部":
         query += " AND language = ?"
@@ -272,8 +264,6 @@ start_date_str = start_date.strftime("%Y-%m-%d") if start_date else None
 end_date_str = end_date.strftime("%Y-%m-%d") if end_date else None
 
 news = get_news(100, language=language, category=category, keyword=keyword, start_date=start_date_str, end_date=end_date_str)
-
-news = [n for n in news if is_valid_date(n.get('published_at'))]
 
 st.write(f"**{len(news)} results ({start_date_str} ~ {end_date_str})**")
 
