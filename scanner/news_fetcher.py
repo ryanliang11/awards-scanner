@@ -115,9 +115,9 @@ class NewsFetcher:
     
     def _build_english_queries(self) -> List[Dict]:
         queries = []
-        news_types = ["award", "winners", "certification", "recognition"]
+        news_types = ["award", "winners", "certification", "recognition", "conference", "summit"]
         
-        keywords = ["AIOps", "Intelligent Operations", "DevOps", "SRE", "Gartner", "Forrester"]
+        keywords = ["AIOps", "Intelligent Operations", "DevOps", "SRE", "Gartner", "Forrester", "IT Operations", "Observability", "Cloud Native"]
         
         for keyword in keywords:
             for news_type in news_types:
@@ -127,20 +127,23 @@ class NewsFetcher:
                     "query": f"{keyword} {news_type}"
                 })
         
-        return queries[:15]
+        return queries[:20]
     
     async def _search_bing_chinese(self) -> List[Dict]:
         queries = [
             "AIOps 奖项 获奖",
             "智能运维 获奖 认证",
+            "IT运维 奖项 获奖",
+            "云原生 奖项 评选",
+            "可观测性 奖项 峰会",
+            "监控 获奖 认证",
+            "运维自动化 奖项",
             "DevOps 认证 评选",
             "SRE 行业 奖项",
             "Gartner 中国 入选",
             "Forrester 报告 厂商",
-            "site:weixin.qq.com AIOps 智能运维",
-            "site:weixin.qq.com DevOps SRE",
-            "微信公众号 AIOps 奖项",
-            "微信公众号 智能运维 获奖",
+            "AIOps 峰会 大会",
+            "智能运维 峰会 评选",
         ]
         
         all_items = []
