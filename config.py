@@ -7,6 +7,8 @@ DATA_DIR.mkdir(exist_ok=True)
 
 SCAN_TIME = "09:00"
 
+TAVILY_API_KEY = "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"
+
 KEYWORDS = [
     "AIOps", "智能运维", "AI Operations", "Intelligent Operations",
     "应用系统运维", "智能体运维", "AI-powered operations",
