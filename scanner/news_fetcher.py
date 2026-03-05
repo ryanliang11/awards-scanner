@@ -48,6 +48,12 @@ class NewsFetcher:
             "AI 智能体 奖项 认证",
             "Agent 智能体 奖项 评选",
             "智能体 运维 获奖",
+            "AIOps 申报 申请",
+            "智能运维 申报 申请",
+            "DevOps 申报 评选",
+            "SRE 奖项 申报",
+            "AI 奖项 申报",
+            "智能体 奖项 申报",
         ]
         
         for query in chinese_queries:
@@ -184,7 +190,7 @@ class NewsFetcher:
     
     def _build_english_queries(self) -> List[Dict]:
         queries = []
-        news_types = ["award", "winners", "certification", "recognition", "conference", "summit"]
+        news_types = ["award", "winners", "certification", "recognition", "conference", "summit", "apply", "application", "call for papers"]
         
         keywords = ["AIOps", "Intelligent Operations", "DevOps", "SRE", "Gartner", "Forrester", "IT Operations", "Observability", "Cloud Native", "AI", "Agent"]
         
