@@ -117,7 +117,7 @@ class NewsFetcher:
         queries = []
         news_types = ["award", "winners", "certification", "recognition", "conference", "summit"]
         
-        keywords = ["AIOps", "Intelligent Operations", "DevOps", "SRE", "Gartner", "Forrester", "IT Operations", "Observability", "Cloud Native"]
+        keywords = ["AIOps", "Intelligent Operations", "DevOps", "SRE", "Gartner", "Forrester", "IT Operations", "Observability", "Cloud Native", "AI", "Agent"]
         
         for keyword in keywords:
             for news_type in news_types:
@@ -144,6 +144,10 @@ class NewsFetcher:
             "Forrester 报告 厂商",
             "AIOps 峰会 大会",
             "智能运维 峰会 评选",
+            "AI 运维 奖项 获奖",
+            "AI 智能体 奖项 认证",
+            "Agent 智能体 奖项 评选",
+            "智能体 运维 获奖",
         ]
         
         all_items = []
