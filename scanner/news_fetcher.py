@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 from bs4 import BeautifulSoup
 import re
 import config
+from tavily import TavilyClient
 
 class NewsFetcher:
     def __init__(self):
@@ -13,6 +14,7 @@ class NewsFetcher:
         }
         self.timeout = 10
         self.cutoff_date = datetime.now() - timedelta(days=7)
+        self.tavily_client = TavilyClient(api_key=config.TAVILY_API_KEY)
         
     async def fetch_news(self) -> List[Dict]:
         all_news = []
@@ -21,9 +23,9 @@ class NewsFetcher:
         
         for query in search_queries:
             try:
-                news_items = await self._search_bing_en(query)
+                news_items = await self._search_tavily(query)
                 all_news.extend(news_items)
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.5)
             except Exception as e:
                 continue
         
@@ -32,9 +34,76 @@ class NewsFetcher:
     async def fetch_chinese_news(self) -> List[Dict]:
         all_news = []
         
-        all_news.extend(await self._search_bing_chinese())
+        chinese_queries = [
+            "AIOps 奖项 获奖",
+            "智能运维 获奖 认证",
+            "IT运维 奖项 获奖",
+            "云原生 奖项 评选",
+            "可观测性 奖项 峰会",
+            "监控 获奖 认证",
+            "运维自动化 奖项",
+            "DevOps 认证 评选",
+            "SRE 行业 奖项",
+            "AI 运维 奖项 获奖",
+            "AI 智能体 奖项 认证",
+            "Agent 智能体 奖项 评选",
+            "智能体 运维 获奖",
+        ]
+        
+        for query in chinese_queries:
+            try:
+                news_items = await self._search_tavily({"query": query, "keyword": query.split()[0]}, language="zh")
+                all_news.extend(news_items)
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                continue
         
         return self._deduplicate(all_news)
+    
+    async def _search_tavily(self, search_info: Dict, language: str = "en") -> List[Dict]:
+        query = search_info["query"]
+        keyword = search_info["keyword"]
+        
+        try:
+            response = self.tavily_client.search(
+                query=f"{query}",
+                max_results=10,
+                time_range="week"
+            )
+            
+            news_items = []
+            
+            for item in response.get("results", []):
+                try:
+                    url = item.get("url", "")
+                    if not url:
+                        continue
+                    
+                    title = item.get("title", "")
+                    snippet = item.get("content", "")
+                    
+                    date_from_url = self._extract_date_from_url(url)
+                    
+                    page_date = await self._extract_date_from_page(url) if not date_from_url else date_from_url
+                    if not page_date:
+                        continue
+                    
+                    news_items.append({
+                        "title": title,
+                        "url": url,
+                        "snippet": snippet[:200] if snippet else "",
+                        "published_at": page_date,
+                        "keyword": keyword,
+                        "source": self._extract_source(url),
+                        "language": language
+                    })
+                except Exception:
+                    continue
+            
+            return news_items
+            
+        except Exception as e:
+            return []
     
     def _extract_date_from_url(self, url: str) -> Optional[datetime]:
         if not url:
@@ -235,6 +304,68 @@ class NewsFetcher:
                     
                     snippet_elem = article.select_one("div.snippet")
                     snippet = snippet_elem.get_text(strip=True) if snippet_elem else ""
+                    
+                    date_from_url = self._extract_date_from_url(url)
+                    
+                    page_date = await self._extract_date_from_page(url) if not date_from_url else date_from_url
+                    if not page_date:
+                        continue
+                    
+                    news_items.append({
+                        "title": title,
+                        "url": url,
+                        "snippet": snippet,
+                        "published_at": page_date,
+                        "keyword": keyword,
+                        "source": self._extract_source(url),
+                        "language": "en"
+                    })
+                except Exception:
+                    continue
+            
+            return news_items
+            
+        except Exception as e:
+            return []
+    
+    async def _search_google_en(self, search_info: Dict) -> List[Dict]:
+        query = search_info["query"]
+        keyword = search_info["keyword"]
+        
+        url = f"https://news.google.com/search?q={query}&hl=en-US"
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout, headers=self.headers, follow_redirects=True) as client:
+                response = await client.get(url)
+            
+            if response.status_code != 200:
+                return []
+            
+            soup = BeautifulSoup(response.text, "html.parser")
+            news_items = []
+            
+            for article in soup.select("article"):
+                try:
+                    title_elem = article.select_one("a.MBeuO")
+                    if not title_elem:
+                        title_elem = article.select_one("a")
+                    if not title_elem:
+                        continue
+                    
+                    title = title_elem.get_text(strip=True)
+                    href = title_elem.get("href", "")
+                    
+                    if not href or not href.startswith("http"):
+                        continue
+                    
+                    url = href
+                    
+                    snippet_elem = article.select_one("div.SoaBEf")
+                    snippet = ""
+                    if snippet_elem:
+                        snippet_elem2 = snippet_elem.select_one("div.MbOVd")
+                        if snippet_elem2:
+                            snippet = snippet_elem2.get_text(strip=True)
                     
                     date_from_url = self._extract_date_from_url(url)
                     
