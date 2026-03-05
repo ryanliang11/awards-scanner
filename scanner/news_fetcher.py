@@ -8,12 +8,20 @@ import config
 from tavily import TavilyClient
 
 class NewsFetcher:
-    def __init__(self):
+    def __init__(self, start_date=None, end_date=None):
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         }
         self.timeout = 10
-        self.cutoff_date = datetime.now() - timedelta(days=7)
+        
+        if start_date and end_date:
+            self.start_date = datetime.strptime(start_date, "%Y-%m-%d")
+            self.end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        else:
+            self.start_date = datetime.now() - timedelta(days=7)
+            self.end_date = datetime.now()
+        
+        self.cutoff_date = self.start_date
         self.tavily_client = TavilyClient(api_key=config.TAVILY_API_KEY)
         
     async def fetch_news(self) -> List[Dict]:
@@ -21,9 +29,17 @@ class NewsFetcher:
         
         search_queries = self._build_english_queries()
         
-        for query in search_queries:
+        for query in search_queries[:20]:
             try:
                 news_items = await self._search_tavily(query)
+                all_news.extend(news_items)
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                continue
+        
+        for query in search_queries[:10]:
+            try:
+                news_items = await self._search_google_en(query)
                 all_news.extend(news_items)
                 await asyncio.sleep(0.5)
             except Exception as e:
@@ -62,10 +78,21 @@ class NewsFetcher:
         keyword = search_info["keyword"]
         
         try:
+            days_range = (self.end_date - self.start_date).days
+            
+            if days_range <= 1:
+                time_range = "day"
+            elif days_range <= 7:
+                time_range = "week"
+            elif days_range <= 30:
+                time_range = "month"
+            else:
+                time_range = "year"
+            
             response = self.tavily_client.search(
                 query=f"{query}",
                 max_results=10,
-                time_range="week"
+                time_range=time_range
             )
             
             news_items = []
@@ -89,6 +116,12 @@ class NewsFetcher:
                     
                     page_date = await self._extract_date_from_page(url) if not date_from_url else date_from_url
                     if not page_date:
+                        continue
+                    
+                    if page_date < self.cutoff_date:
+                        continue
+                    
+                    if page_date > self.end_date:
                         continue
                     
                     news_items.append({
@@ -356,6 +389,12 @@ class NewsFetcher:
                         continue
                     
                     title = title_elem.get_text(strip=True)
+                    
+                    title_lower = title.lower()
+                    query_keywords = query.split()
+                    if not any(kw in title_lower for kw in query_keywords):
+                        continue
+                    
                     href = title_elem.get("href", "")
                     
                     if not href or not href.startswith("http"):
@@ -374,6 +413,12 @@ class NewsFetcher:
                     
                     page_date = await self._extract_date_from_page(url) if not date_from_url else date_from_url
                     if not page_date:
+                        continue
+                    
+                    if page_date < self.cutoff_date:
+                        continue
+                    
+                    if page_date > self.end_date:
                         continue
                     
                     news_items.append({
