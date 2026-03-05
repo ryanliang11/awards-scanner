@@ -71,7 +71,7 @@ def clean_old_news(days=7):
     conn.close()
     return deleted
 
-def get_news(limit=100, language=None, category=None, keyword=None):
+def get_news(limit=100, language=None, category=None, keyword=None, start_date=None, end_date=None):
     cutoff = datetime.now() - timedelta(days=7)
     cutoff_str = cutoff.strftime("%Y-%m-%d")
     
@@ -81,6 +81,14 @@ def get_news(limit=100, language=None, category=None, keyword=None):
     
     query = "SELECT * FROM news WHERE published_at >= ?"
     params = [cutoff_str]
+    
+    if start_date:
+        query += " AND published_at >= ?"
+        params.append(start_date)
+    
+    if end_date:
+        query += " AND published_at <= ?"
+        params.append(end_date)
     
     if language and language != "全部":
         query += " AND language = ?"
@@ -248,16 +256,26 @@ if col4.button("Scan"):
 
 st.divider()
 
-col_search, col_lang, col_cat = st.columns([2, 1, 1])
+col_search, col_lang = st.columns([2, 1])
 keyword = col_search.text_input("Search", placeholder="Keyword...")
 language = col_lang.selectbox("Lang", ["全部", "en", "zh"])
+
+col_cat, col_date1, col_date2 = st.columns([1, 1, 1])
 category = col_cat.selectbox("Category", ["全部", "奖项启动", "获奖名单", "能力认证", "行业报告", "其他"])
 
-news = get_news(100, language=language, category=category, keyword=keyword)
+default_start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+default_end = datetime.now().strftime("%Y-%m-%d")
+start_date = col_date1.date_input("Start", value=default_start)
+end_date = col_date2.date_input("End", value=default_end)
+
+start_date_str = start_date.strftime("%Y-%m-%d") if start_date else None
+end_date_str = end_date.strftime("%Y-%m-%d") if end_date else None
+
+news = get_news(100, language=language, category=category, keyword=keyword, start_date=start_date_str, end_date=end_date_str)
 
 news = [n for n in news if is_valid_date(n.get('published_at'))]
 
-st.write(f"**{len(news)} results (last 7 days)**")
+st.write(f"**{len(news)} results ({start_date_str} ~ {end_date_str})**")
 
 if not news:
     st.info("No news. Click Scan button!")
