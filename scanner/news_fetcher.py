@@ -24,9 +24,6 @@ class NewsFetcher:
         self.cutoff_date = self.start_date
         self.tavily_client = TavilyClient(api_key=config.TAVILY_API_KEY)
         
-        self.allowed_sources_en = config.NEWS_SOURCES.get("en", [])
-        self.allowed_sources_zh = config.NEWS_SOURCES.get("zh", [])
-        
     async def fetch_news(self) -> List[Dict]:
         all_news = []
         
@@ -125,9 +122,6 @@ class NewsFetcher:
                         continue
                     
                     if page_date > self.end_date:
-                        continue
-                    
-                    if not self._is_allowed_source(url, language):
                         continue
                     
                     news_items.append({
@@ -427,9 +421,6 @@ class NewsFetcher:
                     if page_date > self.end_date:
                         continue
                     
-                    if not self._is_allowed_source(url, "en"):
-                        continue
-                    
                     news_items.append({
                         "title": title,
                         "url": url,
@@ -455,18 +446,6 @@ class NewsFetcher:
         if match:
             return match.group(1)
         return "unknown"
-    
-    def _is_allowed_source(self, url: str, language: str = "en") -> bool:
-        source = self._extract_source(url)
-        if language == "zh":
-            allowed = self.allowed_sources_zh
-        else:
-            allowed = self.allowed_sources_en
-        
-        if not allowed:
-            return True
-        
-        return any(s in source for s in allowed)
     
     def _deduplicate(self, news_list: List[Dict]) -> List[Dict]:
         seen = set()
