@@ -36,11 +36,38 @@ WEB_PORT = 5000
 
 NEWS_SOURCES = {
     "en": [
-        "techcrunch.com", "venturebeat.com", "forrester.com", 
-        "gartner.com", "zdnet.com", "cncf.io", "devops.com"
+        "thenewstack.io",
+        "devops.com",
+        "devopsdigest.com",
+        "sre.google",
+        "infoq.com",
+        "techbeacon.com",
+        "devopsinstitute.com",
+        "kubecon.io",
+        "oreilly.com",
+        "qconferences.com",
+        "forrester.com",
+        "gartner.com",
+        "cncf.io",
+        "techcrunch.com",
+        "venturebeat.com",
+        "zdnet.com"
     ],
     "zh": [
-        "tech.163.com", "sina.com.cn", "qq.com", "ifeng.com",
-        "caict.ac.cn", "c114.com.cn", "csdn.net", "infoq.com"
+        "36kr.com",
+        "geekpark.net",
+        "infoq.cn",
+        "cloud.tencent.com",
+        "developer.aliyun.com",
+        "yunweipai.com",
+        "gaopengyuner.com",
+        "gops.dev",
+        "tech.163.com",
+        "sina.com.cn",
+        "qq.com",
+        "ifeng.com",
+        "caict.ac.cn",
+        "c114.com.cn",
+        "csdn.net"
     ]
 }
